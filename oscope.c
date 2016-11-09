@@ -7,7 +7,7 @@
 
 uint8_t samples[N_SAMPLES];
 uint8_t sampleIndex;
-uint8_t trigger = 128;
+uint8_t trigger = 128; //set this to the threshold needed to start capturing a set of samples
 
 enum {
     RESETTING,
@@ -35,16 +35,14 @@ const unsigned short timings[] = {
     calcPr(20000),
 };
 
-uint8_t scaleIndex = 0;
-
-
-
 void sample(uint8_t sample) {
     if (triggerMode == RISING) {
+        //wait for a value high enough to trigger
         if (triggerState == UNTRIGGERED && sample >= trigger) {
             triggerState = TRIGGERED;
         }
 
+        //capture samples until buffer is full
         if (triggerState == TRIGGERED) {
             samples[sampleIndex] = sample;
             if (sampleIndex < N_SAMPLES)
@@ -54,7 +52,8 @@ void sample(uint8_t sample) {
                 triggerState = RESETTING;
             }
         }
-
+        
+        //wait for value to reset below trigger threshold
         if (triggerState == RESETTING && sample < trigger) {
             triggerState = UNTRIGGERED;
         }
@@ -69,13 +68,15 @@ void sample(uint8_t sample) {
     }
 }
 
-void oscopeIsr() {    
+void oscopeIsr() {
+    //when TMR1 compare fires, start up ADC and reset TMR1
     if (CCP1IF) {
         GO=1;
         TMR1 = 0;
         CCP1IF = 0;
     }
     
+    //when ADC is done, store the sample
     if (ADIF) {
         sample(ADRESH);
         ADIF = 0;
@@ -90,8 +91,6 @@ void nextTiming() {
 
 
 void handleInput() {
-    
-    //This shows how to get user input
     switch (getControl()) {
         case (ESCAPE):
             return;
@@ -110,10 +109,13 @@ void handleInput() {
 void drawSamples() {
     int i;
     
-    T0IE = 0;
+    T0IE = 0; //needed to avoid strange drawing artifacts. Probably the crappy free compiler putting intermediate results in Buffer
     for (i = 0; i < 15; i++) {
-     Buffer[i] = (1<< (samples[i]>>5));
+        //draw a dot based on the top 3 bits of the sample
+        //gives roughly 0.375v/div on a 3v battery
+        Buffer[i] = (1<< (samples[i]>>5));
     }
+    //draw a dot to indicate the timing mode
     Buffer[15] = 1 << timingIndex;
     T0IE = 1;
 }
@@ -123,41 +125,36 @@ void oscopeRun() {
     
     Brightness = 15;
     
-    TRISB0 = 1;    
-    ANSB0 = 1;
-    
+    //set up b4 as the scope input
     TRISB4 = 1;    
     ANSB4 = 1;
-    
-//    ADCON0bits.CHS = 0b01100; //AN12, B0
     ADCON0bits.CHS = 0b01011; //AN11, B4
-    
-//    TRISB3 = 0;
-    
-//    VREFCON0bits.FVREN = 1;
-//    VREFCON0bits.FVRS = 0b10; //2.048v 
     
     ADFM = 0; //left align 10 bits, 8 msb in ADRESH
     ADCON2bits.ADCS = 0b110; //FOSC/64 = 1.3us
-    ADCON2bits.ACQT = 0b111;
     ADCON0bits.ADON = 1;
-    //ADCON1bits.PVCFG = 0b10; //use FVR
-
-    CCPR1 = timings[timingIndex];
-    CCP1CONbits.CCP1M = 0b1010;
-    CCP1IE = 1;
-    
-    T1CON = 0b00000111;
-//    T1CONbits.T1CKPS = 0b00; //1:1 12M
-    T1CONbits.T1CKPS = 0b11; //1:8 1.5M
-
     ADIF = 0;
     ADIE = 1;
     
+    //enable these to use the FVR of 2.048v as ADC ref.
+//    VREFCON0bits.FVREN = 1;
+//    VREFCON0bits.FVRS = 0b10; //2.048v     
+//    ADCON1bits.PVCFG = 0b10; //use FVR
+
+    //init the TMR1 compare based on default timing setting
+    CCPR1 = timings[timingIndex];
+    //NOTE we could have been able to automatically trigger ADC and reset the time if CCP2 was used instead of CCP1
+    CCP1CONbits.CCP1M = 0b1010; //Compare mode: generate software interrupt on compare match
+    CCP1IE = 1;
+    
+    T1CON = 0b00000111; //enable tmr1, 16 bit rw mode, no sync (doesn't matter))
+    T1CONbits.T1CKPS = 0b11; //12MIPS 1:8 = 1.5M/s
+
     for (i = 0; i < N_SAMPLES; i++) {
         samples[i] = 0;
     }
 
+    //because we don't use any of the IR stuff, disable interrupts related to those peripherals (not sure this is needed)
     RCIE = 0;
     TXIE = 0;
     TMR2IE = 0;
