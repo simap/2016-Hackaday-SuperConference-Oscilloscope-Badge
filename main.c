@@ -19,8 +19,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <pic18lf25k50.h>
 #include "HaD_Badge.h"
-#include "SuperCon-badge-animate.h"
+#include "oscope.h"
 
 volatile uint16_t innerTick = 0;
 volatile uint32_t ticks = 0;
@@ -28,6 +29,9 @@ volatile uint32_t ticks = 0;
 
 void interrupt high_priority interrupt_at_high_vector(void)
 {
+    
+    oscopeIsr();
+    
     //NOTE: Timer0 and Timer2 are in use by the bootloader/kernel
     
     /***** User Code for high priority interrupts *****/
@@ -37,8 +41,11 @@ void interrupt high_priority interrupt_at_high_vector(void)
     }
     /***** End User Code for high priority interrupts *****/
     
-    //this ASM call must end the function (needed for kernel compliance)
-    asm("goto 0x2B08");
+    //only call out to the original kerlel ISR if the interrupt is TMR0 or INT0
+    if (TMR0IF || INT0IF) {
+        //this ASM call must end the function (needed for kernel compliance)
+        asm("goto 0x2B08");
+    }
 }
 
 // LOW VECTOR
@@ -165,9 +172,9 @@ int main(int argc, char** argv) {
     initControl();
     displayClear();
     displayLatch();
-    getTime();
+    getTime(); 
     
-    animateBadge();
+    oscopeRun();
     
     return (EXIT_SUCCESS);
 }

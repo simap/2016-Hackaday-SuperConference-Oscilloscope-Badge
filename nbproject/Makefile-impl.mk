@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=2016-Hackaday-SuperCon-BadgeHack.X
+PROJECTNAME=2016-Hackaday-SuperConference-Badge-Hacking
 
 # Active Configuration
 DEFAULTCONF=default
