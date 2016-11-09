@@ -3,7 +3,7 @@
     <type>com.microchip.mplab.nbide.embedded.makeproject</type>
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/make-project/1">
-            <name>2016-Hackaday-SuperCon-BadgeHack</name>
+            <name>2016-Hackaday-SuperConference-Osciliscope-Badge</name>
             <creation-uuid>4c218bc2-194a-4786-9f44-87cfcf94f4df</creation-uuid>
             <make-project-type>0</make-project-type>
             <c-extensions>c</c-extensions>
